@@ -65,7 +65,7 @@ module Delayed
         opts.on('--exit-on-complete', "Exit when no more jobs are available to run. This will exit if all jobs are scheduled to run in the future.") do
           @options[:exit_on_complete] = true
         end
-        opts.on('--threaded', "Run all workers in a single thread") do
+        opts.on('--threaded', "Run all workers in a single process using threads") do
           @options[:threaded] = true
         end        
       end
