@@ -4,6 +4,7 @@ rescue LoadError
   raise "You need to add gem 'daemons' to your Gemfile if you wish to use it."
 end
 require 'optparse'
+require 'thread'
 
 module Delayed
   class Command
@@ -64,6 +65,9 @@ module Delayed
         opts.on('--exit-on-complete', "Exit when no more jobs are available to run. This will exit if all jobs are scheduled to run in the future.") do
           @options[:exit_on_complete] = true
         end
+        opts.on('--threaded', "Run all workers in a single thread") do
+          @options[:threaded] = true
+        end        
       end
       @args = opts.parse!(args)
     end
@@ -78,9 +82,13 @@ module Delayed
         process_name = "delayed_job.#{@options[:identifier]}"
         run_process(process_name, dir)
       else
-        worker_count.times do |worker_index|
-          process_name = worker_count == 1 ? "delayed_job" : "delayed_job.#{worker_index}"
-          run_process(process_name, dir)
+        if @options[:threaded]
+          run_process("delayed_job_threaded", dir)
+        else  
+          worker_count.times do |worker_index|
+            process_name = worker_count == 1 ? "delayed_job" : "delayed_job.#{worker_index}"
+            run_process(process_name, dir)
+          end
         end
       end
     end
@@ -95,13 +103,42 @@ module Delayed
 
     def run(worker_name = nil)
       Dir.chdir(Rails.root)
+      
+      if @options[:threaded]
+      
+        threads={}
+        Delayed::Worker.logger ||= Logger.new(File.join(Rails.root, 'log', 'delayed_job.log'))
+        
+        loop do
+          if threads.count<@worker_count
+            worker_num=((1..@worker_count).to_a - threads.keys).first
+            threaded_worker_name="#{worker_name}_threaded.#{worker_num}"
+            threads[worker_num]=Thread.new do
+              worker = Delayed::Worker.new(@options)
+              worker.name_prefix = "#{threaded_worker_name}"
+              worker.start
+            end
+          else
+            threads.each do |name,thread|
+              begin
+                threads.delete name if thread.join(0.1)
+              rescue=> e
+                Rails.logger.fatal e
+                STDERR.puts e.message
+              end
+            end
+            sleep 1
+          end
+        end
+        
+      else
+        Delayed::Worker.after_fork
+        Delayed::Worker.logger ||= Logger.new(File.join(Rails.root, 'log', 'delayed_job.log'))
+        worker = Delayed::Worker.new(@options)
+        worker.name_prefix = "#{worker_name} "
+        worker.start
+      end
 
-      Delayed::Worker.after_fork
-      Delayed::Worker.logger ||= Logger.new(File.join(Rails.root, 'log', 'delayed_job.log'))
-
-      worker = Delayed::Worker.new(@options)
-      worker.name_prefix = "#{worker_name} "
-      worker.start
     rescue => e
       Rails.logger.fatal e
       STDERR.puts e.message
