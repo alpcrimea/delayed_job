@@ -103,8 +103,6 @@ module Delayed
 
     def run(worker_name = nil)
       Dir.chdir(Rails.root)
-      Delayed::Worker.after_fork
-      Delayed::Worker.logger ||= Logger.new(File.join(Rails.root, 'log', 'delayed_job.log'))
  
       if @options[:threaded]
       
@@ -116,6 +114,8 @@ module Delayed
             threaded_worker_name="#{worker_name}_threaded.#{worker_num}"
             threads[worker_num]=Thread.new do
               begin
+                Delayed::Worker.after_fork
+                Delayed::Worker.logger ||= Logger.new(File.join(Rails.root, 'log', 'delayed_job.log'))
                 worker = Delayed::Worker.new(@options)
                 worker.name_prefix = "#{threaded_worker_name}"
                 worker.start
@@ -144,6 +144,8 @@ module Delayed
         end
         
       else
+        Delayed::Worker.after_fork
+        Delayed::Worker.logger ||= Logger.new(File.join(Rails.root, 'log', 'delayed_job.log'))
         worker = Delayed::Worker.new(@options)
         worker.name_prefix = "#{worker_name} "
         worker.start
