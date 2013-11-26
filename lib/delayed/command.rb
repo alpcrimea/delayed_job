@@ -117,6 +117,13 @@ module Delayed
               worker = Delayed::Worker.new(@options)
               worker.name_prefix = "#{threaded_worker_name}"
               worker.start
+            ensure
+              begin
+                if (ActiveRecord::Base.connection && ActiveRecord::Base.connection.active?)
+                  ActiveRecord::Base.connection.close
+                end
+              rescue
+              end
             end
           else
             threads.each do |name,thread|
