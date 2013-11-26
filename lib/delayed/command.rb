@@ -114,15 +114,17 @@ module Delayed
             worker_num=((1..@worker_count).to_a - threads.keys).first
             threaded_worker_name="#{worker_name}_threaded.#{worker_num}"
             threads[worker_num]=Thread.new do
-              worker = Delayed::Worker.new(@options)
-              worker.name_prefix = "#{threaded_worker_name}"
-              worker.start
-            ensure
               begin
-                if (ActiveRecord::Base.connection && ActiveRecord::Base.connection.active?)
-                  ActiveRecord::Base.connection.close
+                worker = Delayed::Worker.new(@options)
+                worker.name_prefix = "#{threaded_worker_name}"
+                worker.start
+              ensure
+                begin
+                  if (ActiveRecord::Base.connection && ActiveRecord::Base.connection.active?)
+                    ActiveRecord::Base.connection.close
+                  end
+                rescue
                 end
-              rescue
               end
             end
           else
