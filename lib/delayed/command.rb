@@ -107,6 +107,7 @@ module Delayed
       if @options[:threaded]
       
         threads={}
+        require 'config/environment'
         Delayed::Worker.logger ||= Logger.new(File.join(Rails.root, 'log', 'delayed_job.log'))
         
         loop do
