@@ -108,8 +108,6 @@ module Delayed
       
         threads={}
         
-        require Rails.root.to_s+'/config/environment'
-        
         Delayed::Worker.logger ||= Logger.new(File.join(Rails.root, 'log', 'delayed_job.log'))
         
         loop do
@@ -129,8 +127,10 @@ module Delayed
                 rescue
                 end
               end
+              sleep 1
             end
           else
+            Rails.logger.info threads.inspect
             threads.each do |name,thread|
               begin
                 threads.delete name if thread.join(0.1)
